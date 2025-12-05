@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Earth Spiral Effect</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+    </style>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.162/build/three.module.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.162/examples/jsm/controls/OrbitControls.js';
+
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+camera.position.set(0, 2, 5);
+
+let renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+document.body.appendChild(renderer.domElement);
+
+let controls = new OrbitControls(camera, renderer.domElement);
+
+/* --------------------- EARTH --------------------- */
+/* --------------------- EARTH PARTICLES --------------------- */
+const earthTexture = new THREE.TextureLoader().load(
+  'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg'
+);
+
+const earthMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+        earthTexture: { value: earthTexture }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = 2.5 * (10.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D earthTexture;
+        varying vec2 vUv;
+        void main() {
+            vec4 color = texture2D(earthTexture, vUv);
+            // Hide dark ocean areas to create a "land-only" particle effect
+            // if (length(color.rgb) < 0.2) discard; 
+            gl_FragColor = vec4(color.rgb, 1.0);
+        }
+    `,
+    transparent: true
+});
+
+const earth = new THREE.Points(
+    new THREE.SphereGeometry(1, 128, 128),
+    earthMaterial
+);
+
+// Add a black inner sphere to occlude back-facing particles
+const blackSphere = new THREE.Mesh(
+    new THREE.SphereGeometry(0.99, 64, 64),
+    new THREE.MeshBasicMaterial({ color: 0x000000 })
+);
+earth.add(blackSphere);
+
+scene.add(earth);
+
+/* --------------------- LIGHT --------------------- */
+let light = new THREE.PointLight(0xffffff, 2);
+light.position.set(5, 5, 5);
+scene.add(light);
+
+/* --------------------- SPIRAL PARTICLES --------------------- */
+function generateSpiralParticles() {
+    const particles = 15000;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particles * 3);
+    const colors = new Float32Array(particles * 3);
+    let color = new THREE.Color();
+
+    for (let i = 0; i < particles; i++) {
+
+        let t = i / particles * 40.0;     // độ dài xoắn
+        let radius = 1.5 + t * 0.05;      // bán kính tăng dần
+        let angle = t * 1.5;              // góc xoắn
+
+        positions[i * 3]     = Math.cos(angle) * radius;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 0.4; // nhiễu nhẹ
+        positions[i * 3 + 2] = Math.sin(angle) * radius;
+
+        color.setHSL(0.65 + t * 0.01, 1, 0.6);
+        colors[i * 3]     = color.r;
+        colors[i * 3 + 1] = color.g;
+        colors[i * 3 + 2] = color.b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({
+        size: 0.03,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+    });
+
+    const points = new THREE.Points(geometry, material);
+    return points;
+}
+
+const spiral = generateSpiralParticles();
+scene.add(spiral);
+
+/* --------------------- ANIMATION --------------------- */
+function animate() {
+    requestAnimationFrame(animate);
+
+    earth.rotation.y += 0.002;
+    spiral.rotation.y += 0.001;
+
+    renderer.render(scene, camera);
+}
+animate();
+
+/* --------------------- RESPONSIVE --------------------- */
+addEventListener("resize", () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

@@ -75,73 +75,100 @@ const stars = new THREE.Points(starGeometry, starMaterial);
 scene.add(stars);
 
 // --- PLANET CREATION (POINT CLOUD + RING) ---
-let planetPoints, ringPoints;
+let planetPoints;
+let satellites = [];
 const earthGroup = new THREE.Group();
 
 const createEarth = () => {
-    // 1. Planet Points (Sphere)
-    const planetGeometry = new THREE.SphereGeometry(1, 64, 64);
-    const planetMaterial = new THREE.PointsMaterial({
-        color: 0x00aaff,
-        size: 0.015,
-        transparent: true,
-        opacity: 0.8,
-        sizeAttenuation: true
+    // 1. Planet Points (Sphere) - Textured Particles
+    const earthTexture = new THREE.TextureLoader().load(
+        'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg'
+    );
+
+    const planetGeometry = new THREE.SphereGeometry(1, 128, 128); // Higher res for better particle density
+    
+    const planetMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            earthTexture: { value: earthTexture }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = 2.5 * (10.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D earthTexture;
+            varying vec2 vUv;
+            void main() {
+                vec4 color = texture2D(earthTexture, vUv);
+                // if (length(color.rgb) < 0.2) discard; // Show ocean
+                gl_FragColor = vec4(color.rgb, 1.0);
+            }
+        `,
+        transparent: true
     });
+
     planetPoints = new THREE.Points(planetGeometry, planetMaterial);
+    
+    // Black inner sphere to block particles behind
+    const blackSphere = new THREE.Mesh(
+        new THREE.SphereGeometry(0.99, 64, 64),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+    );
+    planetPoints.add(blackSphere);
+
     earthGroup.add(planetPoints);
 
-    // 2. Ring Points (Saturn-like)
-    // Create a ring of particles
-    const ringGeometry = new THREE.BufferGeometry();
-    const ringCount = 20000;
-    const ringPositions = new Float32Array(ringCount * 3);
-    const ringColors = new Float32Array(ringCount * 3);
-    const colorInner = new THREE.Color(0xffaa00);
-    const colorOuter = new THREE.Color(0x884400);
+    // 2. Satellites (Random Orbits)
+    // Clear previous satellites
+    satellites.forEach(s => {
+        if (s.mesh) {
+            s.mesh.geometry.dispose();
+            s.mesh.material.dispose();
+        }
+        earthGroup.remove(s.pivot);
+    });
+    satellites = [];
 
-    for(let i=0; i<ringCount; i++) {
-        // Random radius between 1.4 and 2.2
-        const r = 1.4 + Math.random() * 0.8;
-        const theta = Math.random() * Math.PI * 2;
-        
-        const x = r * Math.cos(theta);
-        const y = (Math.random() - 0.5) * 0.05; // Thinness
-        const z = r * Math.sin(theta);
+    const satelliteCount = 40; 
+    const satGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+    const satMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
 
-        ringPositions[i*3] = x;
-        ringPositions[i*3+1] = y;
-        ringPositions[i*3+2] = z;
+    for(let i=0; i<satelliteCount; i++) {
+        const pivot = new THREE.Object3D();
+        // Random orientation for the orbit
+        pivot.rotation.set(
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2
+        );
 
-        // Color gradient based on radius
-        const mixedColor = colorInner.clone().lerp(colorOuter, (r - 1.4) / 0.8);
-        ringColors[i*3] = mixedColor.r;
-        ringColors[i*3+1] = mixedColor.g;
-        ringColors[i*3+2] = mixedColor.b;
+        const sat = new THREE.Mesh(satGeometry, satMaterial);
+        // Random distance from center
+        const distance = 1.3 + Math.random() * 0.7;
+        sat.position.set(distance, 0, 0);
+
+        pivot.add(sat);
+        earthGroup.add(pivot);
+
+        satellites.push({
+            pivot: pivot,
+            mesh: sat,
+            speed: 0.002 + Math.random() * 0.005 // Random orbital speed
+        });
     }
-
-    ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringPositions, 3));
-    ringGeometry.setAttribute('color', new THREE.BufferAttribute(ringColors, 3));
-
-    ringPoints = new THREE.Points(ringGeometry, new THREE.PointsMaterial({
-        size: 0.015,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.7,
-        sizeAttenuation: true
-    }));
-    
-    // Tilt the ring
-    ringPoints.rotation.x = Math.PI / 6; 
-    ringPoints.rotation.z = Math.PI / 8;
-
-    earthGroup.add(ringPoints);
 };
 
 // --- GALAXY GENERATION ---
 let galaxyPoints = null;
+
+// Default Parameters (will be overwritten by presets)
 const galaxyParams = { 
-    count: 150000, // Denser galaxy
+    count: 150000, 
     size: 0.01, 
     radius: 7, 
     branches: 3, 
@@ -150,6 +177,36 @@ const galaxyParams = {
     randomnessPower: 3, 
     insideColor: '#ff6030', 
     outsideColor: '#1b3984' 
+};
+
+// Galaxy Presets
+const galaxyPresets = {
+    'Milky Way': { count: 150000, size: 0.01, radius: 7, branches: 3, spin: 1, randomness: 0.2, randomnessPower: 3, insideColor: '#ff6030', outsideColor: '#1b3984' },
+    'Andromeda': { count: 180000, size: 0.01, radius: 8, branches: 4, spin: 1.2, randomness: 0.3, randomnessPower: 3, insideColor: '#aaddff', outsideColor: '#3355aa' },
+    'Sombrero': { count: 120000, size: 0.015, radius: 6, branches: 12, spin: 0.5, randomness: 0.5, randomnessPower: 2, insideColor: '#ffffaa', outsideColor: '#aa8844' },
+    'Nebula Cloud': { count: 200000, size: 0.02, radius: 5, branches: 3, spin: 0.2, randomness: 1.5, randomnessPower: 1.5, insideColor: '#ff00aa', outsideColor: '#00ffff' },
+    'Black Hole Accretion': { count: 150000, size: 0.01, radius: 4, branches: 8, spin: 3, randomness: 0.1, randomnessPower: 5, insideColor: '#ffffff', outsideColor: '#ff4400' },
+    'Cosmic Web': { count: 100000, size: 0.01, radius: 10, branches: 6, spin: 0, randomness: 2, randomnessPower: 1, insideColor: '#444444', outsideColor: '#aaaaaa' },
+    'Red Giant': { count: 100000, size: 0.03, radius: 3, branches: 5, spin: 0.8, randomness: 0.6, randomnessPower: 2, insideColor: '#ff2200', outsideColor: '#660000' },
+    'Ice Galaxy': { count: 140000, size: 0.01, radius: 7, branches: 4, spin: 1, randomness: 0.3, randomnessPower: 3, insideColor: '#ccffff', outsideColor: '#004488' },
+    'Golden Ring': { count: 100000, size: 0.015, radius: 6, branches: 20, spin: 2, randomness: 0.1, randomnessPower: 4, insideColor: '#ffcc00', outsideColor: '#664400' },
+    'Chaos Region': { count: 150000, size: 0.015, radius: 6, branches: 2, spin: 0.1, randomness: 2, randomnessPower: 1, insideColor: '#00ff00', outsideColor: '#ff00ff' }
+};
+
+const currentPreset = { type: 'Random' };
+
+const randomizeGalaxy = () => {
+    galaxyParams.count = Math.floor(Math.random() * 100000) + 50000;
+    galaxyParams.size = Math.random() * 0.02 + 0.005;
+    galaxyParams.radius = Math.random() * 10 + 3;
+    galaxyParams.branches = Math.floor(Math.random() * 7) + 2;
+    galaxyParams.spin = (Math.random() - 0.5) * 4;
+    galaxyParams.randomness = Math.random() * 1.5;
+    galaxyParams.randomnessPower = Math.random() * 4 + 1;
+    
+    const randomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+    galaxyParams.insideColor = randomColor();
+    galaxyParams.outsideColor = randomColor();
 };
 
 const generateGalaxy = () => {
@@ -199,8 +256,11 @@ const generateGalaxy = () => {
     mainGroup.add(galaxyPoints);
 };
 
+// Randomize Initial State
+randomizeGalaxy();
+
 // Mode Switching
-const displayParams = { mode: 'Planet' };
+const displayParams = { mode: 'Galaxy' };
 const switchMode = () => {
     mainGroup.clear();
     if(displayParams.mode === 'Planet') {
@@ -219,11 +279,45 @@ const switchMode = () => {
 switchMode();
 
 // GUI
-const gui = new GUI({ title: 'Settings' });
+const gui = new GUI({ title: 'Universe Control' });
 gui.add(displayParams, 'mode', ['Planet', 'Galaxy']).onChange(switchMode);
-const galaxyFolder = gui.addFolder('Galaxy Colors').close();
-galaxyFolder.addColor(galaxyParams, 'insideColor').onChange(generateGalaxy);
-galaxyFolder.addColor(galaxyParams, 'outsideColor').onChange(generateGalaxy);
+
+const galaxyFolder = gui.addFolder('Galaxy Settings');
+
+// Randomize Button
+const obj = { Randomize: () => {
+    randomizeGalaxy();
+    currentPreset.type = 'Random';
+    // Update GUI
+    gui.controllersRecursive().forEach(c => c.updateDisplay());
+    generateGalaxy();
+}};
+galaxyFolder.add(obj, 'Randomize');
+
+// Preset Selector
+galaxyFolder.add(currentPreset, 'type', ['Random', ...Object.keys(galaxyPresets)]).name('Galaxy Type').onChange((value) => {
+    if (value === 'Random') {
+        randomizeGalaxy();
+    } else {
+        const preset = galaxyPresets[value];
+        Object.assign(galaxyParams, preset);
+    }
+    // Update GUI controllers to match new preset
+    gui.controllersRecursive().forEach(c => c.updateDisplay());
+    generateGalaxy();
+});
+
+// Advanced Galaxy Controls
+galaxyFolder.add(galaxyParams, 'count').min(1000).max(500000).step(1000).onFinishChange(generateGalaxy);
+galaxyFolder.add(galaxyParams, 'size').min(0.001).max(0.1).step(0.001).onFinishChange(generateGalaxy);
+galaxyFolder.add(galaxyParams, 'radius').min(0.1).max(20).step(0.1).onFinishChange(generateGalaxy);
+galaxyFolder.add(galaxyParams, 'branches').min(2).max(20).step(1).onFinishChange(generateGalaxy);
+galaxyFolder.add(galaxyParams, 'spin').min(-5).max(5).step(0.01).onFinishChange(generateGalaxy);
+galaxyFolder.add(galaxyParams, 'randomness').min(0).max(2).step(0.01).onFinishChange(generateGalaxy);
+galaxyFolder.add(galaxyParams, 'randomnessPower').min(1).max(10).step(0.1).onFinishChange(generateGalaxy);
+galaxyFolder.addColor(galaxyParams, 'insideColor').onFinishChange(generateGalaxy);
+galaxyFolder.addColor(galaxyParams, 'outsideColor').onFinishChange(generateGalaxy);
+galaxyFolder.close();
 
 // ==========================================================================
 // PART 2: AI HAND TRACKING (MediaPipe)
@@ -363,7 +457,10 @@ const tick = () => {
     // Ambient Animations
     if (displayParams.mode === 'Planet') {
         if(planetPoints) planetPoints.rotation.y += 0.0005; 
-        if(ringPoints) ringPoints.rotation.z -= 0.001; // Spin the ring
+        // Animate Satellites
+        satellites.forEach(s => {
+            s.pivot.rotation.z += s.speed; // Rotate around local Z axis (since we set random rotation on pivot)
+        });
     } else if (displayParams.mode === 'Galaxy' && galaxyPoints) {
         galaxyPoints.rotation.z += 0.0002;
     }
