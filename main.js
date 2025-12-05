@@ -74,73 +74,74 @@ const starMaterial = new THREE.PointsMaterial({
 const stars = new THREE.Points(starGeometry, starMaterial);
 scene.add(stars);
 
-// --- PLANET CREATION (EARTH + ATMOSPHERE) ---
-let planetMesh, cloudsMesh, atmosphereMesh;
+// --- PLANET CREATION (POINT CLOUD + RING) ---
+let planetPoints, ringPoints;
 const earthGroup = new THREE.Group();
 
-// Custom Shader for Atmosphere Glow
-const atmosphereVertexShader = `
-    varying vec3 vNormal;
-    void main() {
-        vNormal = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-`;
-const atmosphereFragmentShader = `
-    varying vec3 vNormal;
-    void main() {
-        float intensity = pow(0.6 - dot(vNormal, vec3(0, 0, 1.0)), 4.0);
-        gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity * 1.5;
-    }
-`;
-
 const createEarth = () => {
-    // 1. Earth Surface
-    planetMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 64, 64),
-        new THREE.MeshStandardMaterial({
-            map: textureLoader.load('https://i.imgur.com/y16Gz5L.jpg'), // Color
-            bumpMap: textureLoader.load('https://i.imgur.com/3gX9m5o.jpg'), // Bump
-            bumpScale: 0.05,
-            specularMap: textureLoader.load('https://i.imgur.com/0w0Xq8w.jpg'), // Specular
-            specular: new THREE.Color(0x333333),
-            metalness: 0.1,
-            roughness: 0.7
-        })
-    );
-    earthGroup.add(planetMesh);
+    // 1. Planet Points (Sphere)
+    const planetGeometry = new THREE.SphereGeometry(1, 64, 64);
+    const planetMaterial = new THREE.PointsMaterial({
+        color: 0x00aaff,
+        size: 0.015,
+        transparent: true,
+        opacity: 0.8,
+        sizeAttenuation: true
+    });
+    planetPoints = new THREE.Points(planetGeometry, planetMaterial);
+    earthGroup.add(planetPoints);
 
-    // 2. Clouds
-    cloudsMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1.01, 64, 64),
-        new THREE.MeshStandardMaterial({
-            map: textureLoader.load('https://i.imgur.com/1T8Z7Gj.jpg'),
-            transparent: true, 
-            opacity: 0.8, 
-            blending: THREE.AdditiveBlending,
-            side: THREE.DoubleSide
-        })
-    );
-    earthGroup.add(cloudsMesh);
+    // 2. Ring Points (Saturn-like)
+    // Create a ring of particles
+    const ringGeometry = new THREE.BufferGeometry();
+    const ringCount = 20000;
+    const ringPositions = new Float32Array(ringCount * 3);
+    const ringColors = new Float32Array(ringCount * 3);
+    const colorInner = new THREE.Color(0xffaa00);
+    const colorOuter = new THREE.Color(0x884400);
 
-    // 3. Atmosphere Glow (Shader)
-    atmosphereMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1.2, 64, 64),
-        new THREE.ShaderMaterial({
-            vertexShader: atmosphereVertexShader,
-            fragmentShader: atmosphereFragmentShader,
-            blending: THREE.AdditiveBlending,
-            side: THREE.BackSide,
-            transparent: true
-        })
-    );
-    earthGroup.add(atmosphereMesh);
+    for(let i=0; i<ringCount; i++) {
+        // Random radius between 1.4 and 2.2
+        const r = 1.4 + Math.random() * 0.8;
+        const theta = Math.random() * Math.PI * 2;
+        
+        const x = r * Math.cos(theta);
+        const y = (Math.random() - 0.5) * 0.05; // Thinness
+        const z = r * Math.sin(theta);
+
+        ringPositions[i*3] = x;
+        ringPositions[i*3+1] = y;
+        ringPositions[i*3+2] = z;
+
+        // Color gradient based on radius
+        const mixedColor = colorInner.clone().lerp(colorOuter, (r - 1.4) / 0.8);
+        ringColors[i*3] = mixedColor.r;
+        ringColors[i*3+1] = mixedColor.g;
+        ringColors[i*3+2] = mixedColor.b;
+    }
+
+    ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringPositions, 3));
+    ringGeometry.setAttribute('color', new THREE.BufferAttribute(ringColors, 3));
+
+    ringPoints = new THREE.Points(ringGeometry, new THREE.PointsMaterial({
+        size: 0.015,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.7,
+        sizeAttenuation: true
+    }));
+    
+    // Tilt the ring
+    ringPoints.rotation.x = Math.PI / 6; 
+    ringPoints.rotation.z = Math.PI / 8;
+
+    earthGroup.add(ringPoints);
 };
 
 // --- GALAXY GENERATION ---
 let galaxyPoints = null;
 const galaxyParams = { 
-    count: 80000, 
+    count: 150000, // Denser galaxy
     size: 0.01, 
     radius: 7, 
     branches: 3, 
@@ -203,7 +204,7 @@ const displayParams = { mode: 'Planet' };
 const switchMode = () => {
     mainGroup.clear();
     if(displayParams.mode === 'Planet') {
-        if(!planetMesh) createEarth();
+        if(!planetPoints) createEarth();
         mainGroup.add(earthGroup);
         controlState.targetZoom = 3.5; controlState.currentZoom = 3.5;
         // Reset rotation
@@ -263,6 +264,10 @@ async function initHandLandmarker() {
 UI.startBtn.addEventListener('click', () => {
     if (!handLandmarker) return;
     
+    // Show Dev Credit
+    const devCredit = document.getElementById('dev-credit');
+    if(devCredit) devCredit.classList.remove('hidden');
+
     if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
         UI.errorMsg.style.display = 'block';
         UI.errorMsg.innerText = "Security Warning: Camera requires HTTPS or Localhost.";
@@ -356,9 +361,9 @@ const tick = () => {
     camera.position.z = controlState.currentZoom;
 
     // Ambient Animations
-    if (displayParams.mode === 'Planet' && planetMesh) {
-        planetMesh.rotation.y += 0.0005; // Planet spin
-        if(cloudsMesh) cloudsMesh.rotation.y += 0.0007; // Clouds spin faster
+    if (displayParams.mode === 'Planet') {
+        if(planetPoints) planetPoints.rotation.y += 0.0005; 
+        if(ringPoints) ringPoints.rotation.z -= 0.001; // Spin the ring
     } else if (displayParams.mode === 'Galaxy' && galaxyPoints) {
         galaxyPoints.rotation.z += 0.0002;
     }
