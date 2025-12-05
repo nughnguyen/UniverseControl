@@ -324,12 +324,12 @@ galaxyFolder.close();
 // ==========================================================================
 async function initHandLandmarker() {
     try {
-        UI.loadingText.innerText = "Loading Vision Models...";
+        if(UI.loadingText) UI.loadingText.innerText = "Loading Vision Models...";
         const vision = await FilesetResolver.forVisionTasks(
             "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
         
-        UI.loadingText.innerText = "Initializing AI...";
+        if(UI.loadingText) UI.loadingText.innerText = "Initializing AI...";
         handLandmarker = await HandLandmarker.createFromOptions(vision, {
             baseOptions: {
                 modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
@@ -342,20 +342,15 @@ async function initHandLandmarker() {
             minTrackingConfidence: 0.5
         });
         
-        UI.loadingText.innerText = "System Ready.";
-        UI.startBtn.disabled = false;
-        UI.startBtn.innerText = "START EXPERIENCE";
-        UI.startBtn.style.borderColor = "#ffffff";
-        UI.startBtn.style.color = "#ffffff";
+        // Auto-start camera after models are ready
+        startCamera();
     } catch (error) {
         console.error(error);
-        UI.errorMsg.style.display = 'block';
-        UI.errorMsg.innerText = "Error: " + error.message;
     }
 }
 
-// Start Camera
-UI.startBtn.addEventListener('click', () => {
+// Start Camera Function
+function startCamera() {
     if (!handLandmarker) return;
     
     // Show Dev Credit
@@ -363,11 +358,8 @@ UI.startBtn.addEventListener('click', () => {
     if(devCredit) devCredit.classList.remove('hidden');
 
     if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-        UI.errorMsg.style.display = 'block';
-        UI.errorMsg.innerText = "Security Warning: Camera requires HTTPS or Localhost.";
+        console.warn("Security Warning: Camera requires HTTPS or Localhost.");
     }
-
-    UI.loadingText.innerText = "Requesting Camera Access...";
     
     const constraints = { video: { width: 640, height: 480, frameRate: { ideal: 30 } } };
     navigator.mediaDevices.getUserMedia(constraints)
@@ -375,7 +367,7 @@ UI.startBtn.addEventListener('click', () => {
         UI.video.srcObject = stream;
         UI.video.addEventListener('loadeddata', () => {
             console.log("Camera Active");
-            UI.overlay.classList.add('hidden');
+            // UI.overlay.classList.add('hidden'); // Overlay is already hidden/removed
             UI.statusBadge.style.display = 'flex';
             // Ensure video is playing
             UI.video.play(); 
@@ -383,10 +375,8 @@ UI.startBtn.addEventListener('click', () => {
         });
     }).catch((err) => {
         console.error("Camera Error:", err);
-        UI.errorMsg.style.display = 'block';
-        UI.errorMsg.innerText = "Camera Access Denied: " + err.message;
     });
-});
+}
 
 async function predictWebcam() {
     // Ensure video is ready
