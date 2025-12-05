@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Universe 3D Control</title>
+    <!-- Import Font Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;600&display=swap" rel="stylesheet">
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- UI Overlay -->
+    <div id="overlay">
+      <div class="glass-card">
+        <h1>UNIVERSE</h1>
+        <p class="subtitle">Interactive Hand Control System</p>
+        <div id="error-msg"></div>
+        <button id="start-btn" disabled>INITIALIZING SYSTEM...</button>
+        <p id="loading-text">Loading AI Models...</p>
+      </div>
+    </div>
+
+    <!-- Status Badge -->
+    <div class="status-badge" id="status-badge">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Waiting for input...</span>
+    </div>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- Hidden Camera -->
+    <div class="camera-hidden-container">
+      <video id="webcam" autoplay playsinline muted></video>
+    </div>
+
+    <!-- Import Map -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+          "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
+        }
+      }
+    </script>
+
+    <!-- Logic -->
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
