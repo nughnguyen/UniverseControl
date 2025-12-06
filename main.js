@@ -85,7 +85,7 @@ const createEarth = () => {
         'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg'
     );
 
-    const planetGeometry = new THREE.SphereGeometry(1, 128, 128); // Higher res for better particle density
+    const planetGeometry = new THREE.SphereGeometry(1, 256, 256); // Higher res for better particle density
     
     const planetMaterial = new THREE.ShaderMaterial({
         uniforms: {
@@ -96,7 +96,7 @@ const createEarth = () => {
             void main() {
                 vUv = uv;
                 vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = 2.5 * (10.0 / -mvPosition.z);
+                gl_PointSize = 4.0 * (10.0 / -mvPosition.z);
                 gl_Position = projectionMatrix * mvPosition;
             }
         `,

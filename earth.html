@@ -38,7 +38,7 @@ const earthMaterial = new THREE.ShaderMaterial({
         void main() {
             vUv = uv;
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-            gl_PointSize = 2.5 * (10.0 / -mvPosition.z);
+            gl_PointSize = 4.0 * (10.0 / -mvPosition.z);
             gl_Position = projectionMatrix * mvPosition;
         }
     `,
@@ -56,7 +56,7 @@ const earthMaterial = new THREE.ShaderMaterial({
 });
 
 const earth = new THREE.Points(
-    new THREE.SphereGeometry(1, 128, 128),
+    new THREE.SphereGeometry(1, 256, 256),
     earthMaterial
 );
 
@@ -75,52 +75,70 @@ light.position.set(5, 5, 5);
 scene.add(light);
 
 /* --------------------- SPIRAL PARTICLES --------------------- */
-function generateSpiralParticles() {
-    const particles = 15000;
+function generateGalaxy() {
+    const parameters = {
+        count: 50000,
+        size: 0.02,
+        radius: 5,
+        branches: 3,
+        spin: 1,
+        randomness: 0.2,
+        randomnessPower: 3,
+        insideColor: '#ff6030',
+        outsideColor: '#1b3984'
+    };
+
     const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particles * 3);
-    const colors = new Float32Array(particles * 3);
-    let color = new THREE.Color();
+    const positions = new Float32Array(parameters.count * 3);
+    const colors = new Float32Array(parameters.count * 3);
+    
+    const colorInside = new THREE.Color(parameters.insideColor);
+    const colorOutside = new THREE.Color(parameters.outsideColor);
 
-    for (let i = 0; i < particles; i++) {
+    for(let i = 0; i < parameters.count; i++) {
+        const i3 = i * 3;
+        const r = Math.random() * parameters.radius;
+        const spinAngle = r * parameters.spin;
+        const branchAngle = (i % parameters.branches) / parameters.branches * Math.PI * 2;
+        
+        const randomX = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * r;
+        const randomY = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * r;
+        const randomZ = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * r;
 
-        let t = i / particles * 40.0;     // độ dài xoắn
-        let radius = 1.5 + t * 0.05;      // bán kính tăng dần
-        let angle = t * 1.5;              // góc xoắn
+        positions[i3]     = Math.cos(branchAngle + spinAngle) * r + randomX;
+        positions[i3 + 1] = randomY;
+        positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * r + randomZ;
 
-        positions[i * 3]     = Math.cos(angle) * radius;
-        positions[i * 3 + 1] = (Math.random() - 0.5) * 0.4; // nhiễu nhẹ
-        positions[i * 3 + 2] = Math.sin(angle) * radius;
-
-        color.setHSL(0.65 + t * 0.01, 1, 0.6);
-        colors[i * 3]     = color.r;
-        colors[i * 3 + 1] = color.g;
-        colors[i * 3 + 2] = color.b;
+        const mixedColor = colorInside.clone().lerp(colorOutside, r / parameters.radius);
+        colors[i3]     = mixedColor.r;
+        colors[i3 + 1] = mixedColor.g;
+        colors[i3 + 2] = mixedColor.b;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     const material = new THREE.PointsMaterial({
-        size: 0.03,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.9,
+        size: parameters.size,
+        sizeAttenuation: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        vertexColors: true
     });
 
     const points = new THREE.Points(geometry, material);
     return points;
 }
 
-const spiral = generateSpiralParticles();
-scene.add(spiral);
+const galaxy = generateGalaxy();
+scene.add(galaxy);
 
 /* --------------------- ANIMATION --------------------- */
 function animate() {
     requestAnimationFrame(animate);
 
     earth.rotation.y += 0.002;
-    spiral.rotation.y += 0.001;
+    galaxy.rotation.y += 0.001;
 
     renderer.render(scene, camera);
 }
