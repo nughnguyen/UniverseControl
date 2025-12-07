@@ -1,19 +1,16 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Universe 3D Control</title>
-    <!-- Import Font Outfit -->
+    <title>Universe 3D - Galaxy</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;600&display=swap" rel="stylesheet">
-    <!-- CSS -->
-    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- UI Overlay Removed -->
-    <div id="overlay" style="display: none;"></div>
+    <!-- Navigation -->
+    <a href="/planet.html" class="nav-link">Go to Planet View &rarr;</a>
 
     <!-- Status Badge -->
     <div class="status-badge" id="status-badge">
@@ -32,18 +29,7 @@
       <video id="webcam" autoplay playsinline muted></video>
     </div>
 
-    <!-- Import Map -->
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-          "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
-        }
-      }
-    </script>
-
     <!-- Logic -->
-    <script type="module" src="main.js"></script>
+    <script type="module" src="/src/universe-main.js"></script>
   </body>
 </html>
