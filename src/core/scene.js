@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { controlState } from './state.js';
 
 export const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.02);
@@ -24,12 +23,7 @@ const sunLight = new THREE.DirectionalLight(0xffffff, 3);
 sunLight.position.set(5, 3, 5);
 scene.add(sunLight);
 
-const backLight = new THREE.SpotLight(0x64ffda, 5);
-backLight.position.set(-5, 5, -5);
-backLight.lookAt(0, 0, 0);
-scene.add(backLight);
-
-// Star Field
+// Stars
 const starGeometry = new THREE.BufferGeometry();
 const starCount = 3000;
 const starPos = new Float32Array(starCount * 3);
@@ -43,16 +37,13 @@ const starMaterial = new THREE.PointsMaterial({
 export const stars = new THREE.Points(starGeometry, starMaterial);
 scene.add(stars);
 
-// Resize Handler
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// Init Function to append canvas
-export function initScene(container) {
-    if (container) {
+export const initScene = (container) => {
+    if(container) {
         container.appendChild(renderer.domElement);
     }
-}
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+};

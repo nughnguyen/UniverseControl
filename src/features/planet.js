@@ -4,13 +4,23 @@ let planetPoints;
 let satellites = [];
 const earthGroup = new THREE.Group();
 
-const createPlanet = () => {
-    // 1. Planet Points (Sphere)
+export const initPlanet = (parentGroup) => {
+    if(!planetPoints) createEarth();
+    parentGroup.add(earthGroup);
+};
+
+export const animatePlanet = () => {
+    if(planetPoints) planetPoints.rotation.y += 0.0005; 
+    satellites.forEach(s => s.pivot.rotation.z += s.speed);
+};
+
+const createEarth = () => {
+    // 1. Planet Points (Sphere) - Textured Particles
     const earthTexture = new THREE.TextureLoader().load(
         'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg'
     );
 
-    const planetGeometry = new THREE.SphereGeometry(1, 256, 256);
+    const planetGeometry = new THREE.SphereGeometry(1, 256, 256); 
     
     const planetMaterial = new THREE.ShaderMaterial({
         uniforms: {
@@ -30,6 +40,7 @@ const createPlanet = () => {
             varying vec2 vUv;
             void main() {
                 vec4 color = texture2D(earthTexture, vUv);
+                // if (length(color.rgb) < 0.2) discard; // Show ocean
                 gl_FragColor = vec4(color.rgb, 1.0);
             }
         `,
@@ -38,6 +49,7 @@ const createPlanet = () => {
 
     planetPoints = new THREE.Points(planetGeometry, planetMaterial);
     
+    // Black inner sphere to block particles behind
     const blackSphere = new THREE.Mesh(
         new THREE.SphereGeometry(0.99, 64, 64),
         new THREE.MeshBasicMaterial({ color: 0x000000 })
@@ -46,7 +58,10 @@ const createPlanet = () => {
 
     earthGroup.add(planetPoints);
 
-    // 2. Satellites
+    // 2. Satellites (Random Orbits)
+    // Clear previous
+    satellites = [];
+
     const satelliteCount = 40; 
     const satGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.05);
     const satMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
@@ -69,19 +84,7 @@ const createPlanet = () => {
         satellites.push({
             pivot: pivot,
             mesh: sat,
-            speed: 0.002 + Math.random() * 0.005
+            speed: 0.002 + Math.random() * 0.005 
         });
     }
 };
-
-export function initPlanet(sceneGroup) {
-    createPlanet();
-    sceneGroup.add(earthGroup);
-}
-
-export function animatePlanet() {
-    if(planetPoints) planetPoints.rotation.y += 0.0005; 
-    satellites.forEach(s => {
-        s.pivot.rotation.z += s.speed; 
-    });
-}

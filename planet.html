@@ -9,8 +9,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;600&display=swap" rel="stylesheet">
   </head>
   <body>
-    <!-- Navigation -->
-    <a href="/index.html" class="nav-link">&larr; Go to Galaxy View</a>
+    <!-- iOS Liquid Dock -->
+    <nav class="liquid-dock">
+      <div class="dock-container">
+        <button class="dock-item" data-mode="Galaxy" onclick="window.location.href='/'">
+          <span class="label">Galaxy</span>
+        </button>
+        <button class="dock-item active" data-mode="Planet">
+          <span class="label">Planet</span>
+        </button>
+      </div>
+    </nav>
 
     <!-- Status Badge -->
     <div class="status-badge" id="status-badge">
@@ -19,7 +28,7 @@
     </div>
 
     <!-- Dev Credit -->
-    <div id="dev-credit" class="hidden">Dev: Quoc Hung</div>
+    <div id="dev-credit">Powered by Quoc Hung</div>
 
     <!-- 3D Canvas -->
     <div id="canvas-container"></div>
